@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Stub plugin pom used by atlas-run to launch Jira Software for
+  development/test. plugin/src is intentionally empty - the only purpose
+  of this pom is to declare <applicationKey>jira-software</applicationKey>
+  and pin the AMPS / Jira / Jakarta-stack versions.
 
+  Search BUMP-JIRA-AUDIT in this file to find every property and
+  dependency that must be reviewed when targeting a different Jira
+  version.
+-->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
@@ -19,51 +28,52 @@
     <packaging>atlassian-plugin</packaging>
 
     <dependencies>
+        <!-- BUMP-JIRA-AUDIT: jira-api. Provided so Jira's classpath wins at
+             runtime. Required for AMPS to resolve the Jira version. The
+             com.atlassian.jira:jira-api artifact coordinates are stable across
+             Jira majors; verify resolution under a new major at
+             https://packages.atlassian.com/maven-external/com/atlassian/jira/jira-api/
+             before bumping. Version is auto-tracked via ${jira.version}. -->
         <dependency>
             <groupId>com.atlassian.jira</groupId>
             <artifactId>jira-api</artifactId>
             <version>${jira.version}</version>
             <scope>provided</scope>
         </dependency>
-        <!-- Add dependency on jira-core if you want access to JIRA implementation classes as well as the sanctioned API. -->
-        <!-- This is not normally recommended, but may be required eg when migrating a plugin originally developed against JIRA 4.x -->
+
+        <!-- BUMP-JIRA-AUDIT: scaffold deps below were inherited from the
+             atlas-create-jira-plugin generator. plugin/src/ is empty so
+             nothing references them; commented out as a first-pass test.
+             If atlas-run fails to launch Jira, uncomment the specific
+             dep indicated by the failure (e.g. NoClassDefFoundError on a
+             class in this list) and bump it to a current version on
+             Maven Central / packages.atlassian.com. If first-pass smoke
+             is green, delete this block entirely on a follow-up commit. -->
         <!--
-        <dependency>
-            <groupId>com.atlassian.jira</groupId>
-            <artifactId>jira-core</artifactId>
-            <version>${jira.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        -->
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <version>4.13.1</version>
+            <version>4.13.2</version>
             <scope>test</scope>
         </dependency>
-
         <dependency>
             <groupId>com.atlassian.plugin</groupId>
             <artifactId>atlassian-spring-scanner-annotation</artifactId>
             <version>${atlassian.spring.scanner.version}</version>
             <scope>compile</scope>
         </dependency>
-
         <dependency>
             <groupId>com.atlassian.plugin</groupId>
             <artifactId>atlassian-spring-scanner-runtime</artifactId>
             <version>${atlassian.spring.scanner.version}</version>
             <scope>runtime</scope>
         </dependency>
-
         <dependency>
             <groupId>javax.inject</groupId>
             <artifactId>javax.inject</artifactId>
             <version>1</version>
             <scope>provided</scope>
         </dependency>
-
-        <!-- WIRED TEST RUNNER DEPENDENCIES -->
         <dependency>
             <groupId>com.atlassian.plugins</groupId>
             <artifactId>atlassian-plugins-osgi-testrunner</artifactId>
@@ -79,17 +89,7 @@
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
-            <version>2.8.9</version>
-        </dependency>
-
-        <!-- Uncomment to use TestKit in your project. Details at https://bitbucket.org/atlassian/jira-testkit -->
-        <!-- You can read more about TestKit at https://developer.atlassian.com/display/JIRADEV/Plugin+Tutorial+-+Smarter+integration+testing+with+TestKit -->
-        <!--
-        <dependency>
-            <groupId>com.atlassian.jira.tests</groupId>
-            <artifactId>jira-testkit-client</artifactId>
-            <version>${testkit.version}</version>
-            <scope>test</scope>
+            <version>2.13.2</version>
         </dependency>
         -->
     </dependencies>
@@ -107,51 +107,34 @@
                             <applicationKey>jira-software</applicationKey>
                             <version>${jira.version}</version>
                         </application>
-                        <!-- Example of how to enable JSD -->
-                        <!--
-                        <application>
-                            <applicationKey>jira-servicedesk</applicationKey>
-                            <version>${jira.servicedesk.application.version}</version>
-                        </application>
-                        -->
                     </applications>
                     <productVersion>${jira.version}</productVersion>
                     <productDataVersion>${jira.version}</productDataVersion>
-                    <!-- Uncomment to install TestKit backdoor in JIRA. -->
-                    <!--
-                    <pluginArtifacts>
-                        <pluginArtifact>
-                            <groupId>com.atlassian.jira.tests</groupId>
-                            <artifactId>jira-testkit-plugin</artifactId>
-                            <version>${testkit.version}</version>
-                        </pluginArtifact>
-                    </pluginArtifacts>
-                    -->
                     <enableQuickReload>true</enableQuickReload>
 
-                    <!-- See here for an explanation of default instructions: -->
-                    <!-- https://developer.atlassian.com/docs/advanced-topics/configuration-of-instructions-in-atlassian-plugins -->
                     <instructions>
                         <Atlassian-Plugin-Key>${atlassian.plugin.key}</Atlassian-Plugin-Key>
 
-                        <!-- Add package to export here -->
                         <Export-Package>
                             mypackage.api,
                         </Export-Package>
 
-                        <!-- Add package import here -->
                         <Import-Package>
                             org.springframework.osgi.*;resolution:="optional",
                             org.eclipse.gemini.blueprint.*;resolution:="optional",
                             *
                         </Import-Package>
 
-                        <!-- Ensure plugin is spring powered -->
                         <Spring-Context>*</Spring-Context>
                     </instructions>
                 </configuration>
             </plugin>
 
+            <!-- BUMP-JIRA-AUDIT: spring-scanner-maven-plugin commented out
+                 alongside the scanner runtime deps above. Same first-pass
+                 rationale: empty plugin/src/, nothing to scan. Uncomment
+                 if atlas-run complains about missing scanner output. -->
+            <!--
             <plugin>
                 <groupId>com.atlassian.plugin</groupId>
                 <artifactId>atlassian-spring-scanner-maven-plugin</artifactId>
@@ -174,21 +157,47 @@
                     <verbose>false</verbose>
                 </configuration>
             </plugin>
+            -->
         </plugins>
     </build>
 
     <properties>
+        <!-- BUMP-JIRA-AUDIT: Driven by the JIRA_VERSION env that the
+             Dockerfile ARG/ENV pair sets, so the same image runs multiple
+             11.x patches. -->
         <jira.version>${env.JIRA_VERSION}</jira.version>
-        <amps.version>8.0.2</amps.version>
-        <plugin.testrunner.version>2.0.1</plugin.testrunner.version>
-        <atlassian.spring.scanner.version>1.2.13</atlassian.spring.scanner.version>
-        <!-- This property ensures consistency between the key in atlassian-plugin.xml and the OSGi bundle's key. -->
+
+        <!-- BUMP-JIRA-AUDIT: AMPS. Verify the version is actually
+             published in Maven (release-notes pages can announce
+             versions before they ship to Maven):
+             https://packages.atlassian.com/maven-external/com/atlassian/amps/atlassian-plugin-sdk/maven-metadata.xml
+             9.11.x is the latest published 9.x supporting Jira 11 as
+             of Apr 2026. Must match the Dockerfile AMPS_VERSION ARG. -->
+        <amps.version>9.11.2</amps.version>
+
+        <!-- BUMP-JIRA-AUDIT: atlassian-plugins-osgi-testrunner. Browse:
+             https://packages.atlassian.com/maven-external/com/atlassian/plugins/atlassian-plugins-osgi-testrunner/
+             Latest 2.0.x for Jira 8-10. For Jira 11 verify the chosen
+             2.0.x resolves under the active AMPS line; if a
+             Jakarta-aware 2.1.x or 3.x ships, prefer it. -->
+        <plugin.testrunner.version>2.0.16</plugin.testrunner.version>
+
+        <!-- BUMP-JIRA-AUDIT: atlassian-spring-scanner. Major-locked to
+             Jira's Spring major. Jira 11 ships Spring 6 + Jakarta EE 10
+             so 6.x is mandatory; 5.x cannot scan jakarta.* annotations.
+             https://packages.atlassian.com/maven-external/com/atlassian/plugin/atlassian-spring-scanner-runtime/ -->
+        <atlassian.spring.scanner.version>6.0.0</atlassian.spring.scanner.version>
+
         <atlassian.plugin.key>${project.groupId}.${project.artifactId}</atlassian.plugin.key>
-        <!-- TestKit version 6.x for JIRA 6.x -->
-        <testkit.version>6.3.11</testkit.version>
+
+        <!-- BUMP-JIRA-AUDIT: Java compile floor. Jira 11 runtime = JDK 21;
+             compile target 17 = Spring 6 / Jakarta EE 10 baseline.
+             Bumping to 21 also valid; 17 is safer cross-compat with
+             Jira 10. -->
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
     </properties>
 
 </project>

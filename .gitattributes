@@ -1,0 +1,11 @@
+# Force LF endings on text files that run inside the Linux build
+# container or get parsed by Linux tools regardless of the platform of
+# the working tree.
+#
+# Without this, a Windows checkout with core.autocrlf=true converts
+# scripts to CRLF on disk, and bash inside the Docker image fails on
+# the first set/source/etc. line with errors like
+# `set: -o: invalid option`.
+* text=auto
+*.sh text eol=lf
+Dockerfile text eol=lf
