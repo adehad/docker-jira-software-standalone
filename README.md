@@ -14,6 +14,12 @@
 
 ## 📝 Table of Contents
 
+<!-- TOC kept at the addono baseline (About / Usage / Contributors)
+     intentionally; Travis CI, Jira 11 variant, and Development are not
+     listed here so the upstream-PR diff back to Addono/master stays
+     scoped to the build-system change. Update the TOC alongside any
+     future structural rework. -->
+
 - [About](#about)
 - [Usage](#usage)
 - [Contributors](#contributors)
@@ -37,6 +43,115 @@ docker run -d -it -p 2990:2990 --name jira addono/jira-software-standalone
 ```
 
 _Note: Make sure that the `-i` flag is enabled, as without it the server will exit the moment it completed booting._
+
+## Jira 11 variant
+
+The `jira-11` branch builds a self-hosted variant of this image targeting
+Jira Software 11.x (Java 21, AMPS 9.12.x). Published to GitHub Container
+Registry under the maintainer's account:
+
+`ghcr.io/adehad/jira-software-standalone:<jira-version>`
+
+```bash
+docker run -dit -p 2990:2990 --name jira \
+  ghcr.io/adehad/jira-software-standalone:11.3.4
+```
+
+The `master` branch and the Docker Hub `addono/jira-software-standalone`
+image continue to serve Jira 8.x; the two are not interchangeable
+because Jira 11 requires JDK 21 at runtime.
+
+## 🛠️ Development
+
+### How a Jira version flows through the build
+
+`Dockerfile` declares three coupled `ARG`s: `JAVA_IMAGE`, `AMPS_VERSION`,
+`JIRA_VERSION`. `JIRA_VERSION` is also exported as `ENV`, and
+`plugin/pom.xml` reads it via `<jira.version>${env.JIRA_VERSION}</jira.version>`.
+
+This means three things at runtime:
+
+1. The Jira version that boots is the `JIRA_VERSION` env in the container,
+   which defaults to the build-time `ARG` value but can be overridden:
+   `docker run -e JIRA_VERSION=11.3.5 ...` (within the same major).
+2. `AMPS_VERSION` and `JAVA_IMAGE` are baked at build time only — there
+   is no runtime override; bumping a Jira major requires a fresh build.
+3. The pom is otherwise version-agnostic: AMPS itself dispatches to the
+   right Jira artifacts based on `${jira.version}`.
+
+### Bumping the targeted Jira version
+
+<!-- BUMP-JIRA-AUDIT: pointer comment - keep in sync with the markers
+     in Dockerfile and plugin/pom.xml. The recipe lives in those files,
+     not here, so we do not duplicate URLs that may drift. -->
+
+Every line that must change when retargeting Jira carries a
+`BUMP-JIRA-AUDIT:` comment with the upstream source URL and the rule for
+picking the next value. Enumerate them:
+
+```bash
+grep -rn "BUMP-JIRA-AUDIT" Dockerfile plugin/pom.xml \
+  .github/workflows/ghcr-publish.yml README.md
+```
+
+Walk each match, follow its cited source, update the value. The
+Dockerfile `ARG` defaults, pom properties, and the workflow's
+`jira_version` input default must all agree; the audit markers are the
+exhaustive list of places to touch.
+
+### Building and smoke-testing locally
+
+```bash
+docker build \
+  --build-arg JIRA_VERSION=11.3.4 \
+  -t jira-software-standalone:dev .
+
+bash scripts/smoke.sh jira-software-standalone:dev 11.3.4 ./artifacts
+```
+
+`scripts/smoke.sh` starts the container, polls Dashboard.jspa until Jira
+responds (cold boot 10–20 min), asserts `/rest/api/2/serverInfo` returns
+the expected version, and dumps container logs to `./artifacts/`.
+
+### When smoke fails on a fresh Jira version
+
+`plugin/pom.xml` carries the scaffold dependencies (junit, gson,
+javax.inject, atlassian-plugins-osgi-testrunner, atlassian-spring-scanner)
+commented out — `plugin/src/` is empty so nothing references them. If
+`atlas-run` fails with `NoClassDefFoundError` on a class belonging to one
+of these:
+
+1. Uncomment the offending dependency block.
+2. Bump it to a current Jakarta-aware version (Maven Central for `junit`
+   / `gson`; `packages.atlassian.com/maven-external` for the rest).
+3. Re-run the workflow. Commit with `Refs: <hash>` where `<hash>` is the
+   short SHA of the `feat(jira-11)` commit that introduced the Dockerfile
+   and pom changes (use `git log --oneline --grep "feat(jira-11)"`).
+
+### Publishing
+
+`.github/workflows/ghcr-publish.yml` is `workflow_dispatch` only. Inputs:
+
+- `jira_major` — string, default matches Dockerfile (e.g. `11`).
+- `jira_minor_patch` — string, default matches Dockerfile (e.g. `3.4`).
+- `tag_latest` — boolean; when true, also pushes `:<major>-latest`
+  (e.g. `:11-latest`). Safe per-major — different majors don't collide
+  on `:<major>-latest`.
+- `tag_warm` — boolean; **reserved** for the future warmed-variant tag
+  scheme (`:<version>-warm`, `:<major>-warm-latest`). Currently a no-op
+  guard — setting true fails the workflow until the warmer is
+  integrated.
+
+Tag composition:
+
+- Primary tag (always): `<jira_major>.<jira_minor_patch>` (e.g. `:11.3.4`).
+- Floating tag (when `tag_latest=true`): `<jira_major>-latest` (e.g. `:11-latest`).
+
+The job builds, smoke-tests, and pushes only on green smoke. Logs
+upload as workflow artifacts regardless of outcome.
+
+First push creates the GHCR package as **private**. Flip to public once
+via `Packages → jira-software-standalone → Settings → Change visibility`.
 
 ## Travis CI
 
