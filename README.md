@@ -113,6 +113,34 @@ bash scripts/smoke.sh jira-software-standalone:dev 11.3.4 ./artifacts
 responds (cold boot 10–20 min), asserts `/rest/api/2/serverInfo` returns
 the expected version, and dumps container logs to `./artifacts/`.
 
+### Warmed variant
+
+The Dockerfile is multi-stage. The default target (`unwarmed`) cold-boots
+on every container start (~10–20 min). The `warmed` target bakes the
+result of one full atlas-run boot into the image so subsequent
+`docker run` containers reach `/serverInfo` in ~1–2 min. The trade is
+build time: the warmer stage runs atlas-run during `docker build`,
+adding ~15–25 min upfront.
+
+```bash
+docker build --target warmed \
+  --build-arg JIRA_VERSION=11.3.4 \
+  -t jira-software-standalone:dev-warm .
+
+bash scripts/smoke.sh jira-software-standalone:dev-warm 11.3.4 ./artifacts
+```
+
+What gets baked: `/root/.m2/repository` (Maven cache) and
+`/opt/jira-plugin/target` (atlas-run unpacks Jira's webapp + initial
+HSQLDB here). `scripts/warm.sh` validates both paths exist and are
+non-empty after shutdown, and aborts the build rather than producing
+a half-warm image. The warmed runtime entrypoint adds `-o` (offline)
+since Maven has nothing left to fetch.
+
+The dev licence AMPS issues is not baked — atlas-run regenerates it on
+each container start (3-day TTL), so warmed images do not carry stale
+licence state.
+
 ### When smoke fails on a fresh Jira version
 
 `plugin/pom.xml` carries the scaffold dependencies (junit, gson,
@@ -137,15 +165,21 @@ of these:
 - `tag_latest` — boolean; when true, also pushes `:<major>-latest`
   (e.g. `:11-latest`). Safe per-major — different majors don't collide
   on `:<major>-latest`.
-- `tag_warm` — boolean; **reserved** for the future warmed-variant tag
-  scheme (`:<version>-warm`, `:<major>-warm-latest`). Currently a no-op
-  guard — setting true fails the workflow until the warmer is
-  integrated.
+- `tag_warm` — boolean; when true, the workflow builds the multi-stage
+  `warmed` target and the primary tag gets a `-warm` suffix
+  (e.g. `:11.3.4-warm`). Floating tag also picks up the suffix
+  (`:11-warm-latest`). The warmer build adds ~15–25 min to total
+  workflow time; only set when the runtime cold-boot saving is worth
+  the upfront cost.
 
 Tag composition:
 
-- Primary tag (always): `<jira_major>.<jira_minor_patch>` (e.g. `:11.3.4`).
-- Floating tag (when `tag_latest=true`): `<jira_major>-latest` (e.g. `:11-latest`).
+| `tag_warm` | `tag_latest` | Tags pushed |
+|------------|--------------|-------------|
+| false | false | `:<major>.<minor.patch>` |
+| false | true  | `:<major>.<minor.patch>` + `:<major>-latest` |
+| true  | false | `:<major>.<minor.patch>-warm` |
+| true  | true  | `:<major>.<minor.patch>-warm` + `:<major>-warm-latest` |
 
 The job builds, smoke-tests, and pushes only on green smoke. Logs
 upload as workflow artifacts regardless of outcome.

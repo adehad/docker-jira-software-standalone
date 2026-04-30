@@ -6,7 +6,9 @@
 # https://confluence.atlassian.com/adminjiraserver/supported-platforms-938846830.html
 ARG JAVA_IMAGE=eclipse-temurin:21-jdk-jammy
 
-FROM ${JAVA_IMAGE}
+# === base ====================================================================
+# Common scaffolding shared by `unwarmed`, `warmer`, and `warmed`.
+FROM ${JAVA_IMAGE} AS base
 
 # BUMP-JIRA-AUDIT: AMPS (Atlassian Maven Plugin Suite). Verify the
 # version is actually published in the Maven repo (release-notes pages
@@ -41,8 +43,35 @@ COPY plugin/ ./
 
 EXPOSE 2990
 
+# === warmer ==================================================================
+# Build-time-only stage. Runs atlas-run in the background, polls
+# /rest/api/2/serverInfo until 200, SIGTERMs the JVM, validates that
+# the warmed paths exist + are non-empty. The `warmed` stage COPY-s
+# those paths from this stage's filesystem.
+FROM base AS warmer
+COPY scripts/warm.sh /tmp/warm.sh
+RUN bash /tmp/warm.sh && rm /tmp/warm.sh
+
+# === warmed ==================================================================
+# Runtime stage with the Maven cache + unpacked Jira webapp baked in.
+# Caller picks this via `docker build --target warmed`. Cold-boot
+# becomes ~1-2min instead of ~10-20min because Maven downloads + war
+# unpack + initial DB schema are pre-populated. -o (offline) keeps
+# Maven from reaching out at runtime since the cache is fully populated.
+FROM base AS warmed
+COPY --from=warmer /root/.m2 /root/.m2
+COPY --from=warmer /opt/jira-plugin/target /opt/jira-plugin/target
 # -DskipAllPrompts=true: AMPS hardcodes a call to the shut-down
 # Atlassian Marketplace v1 endpoint at startup. This flag makes the
 # resulting 404 non-fatal so the boot proceeds.
 # Caller MUST run with -it; atlas-run exits without a TTY.
+ENTRYPOINT ["atlas-run", "-DskipAllPrompts=true", "-o"]
+
+# === unwarmed (default target) ===============================================
+# Default `docker build .` target. Boots cold every container start
+# (~10-20min for Jira 11). Use `--target warmed` to opt into the
+# pre-baked variant when the upfront ~25min build cost is acceptable.
+FROM base AS unwarmed
+# -DskipAllPrompts=true: same Marketplace v1 endpoint workaround as
+# above. Caller MUST run with -it; atlas-run exits without a TTY.
 ENTRYPOINT ["atlas-run", "-DskipAllPrompts=true"]

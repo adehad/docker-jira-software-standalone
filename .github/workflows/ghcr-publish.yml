@@ -2,8 +2,8 @@ name: ghcr-publish
 
 # BUMP-JIRA-AUDIT: jira_major / jira_minor_patch defaults. Match
 # Dockerfile JIRA_VERSION ARG (split here so the tag scheme can compose
-# :<major>.<minor.patch> primary, :<major>-latest floating, and a
-# reserved :<...>-warm path without re-parsing a single string input).
+# :<major>.<minor.patch> primary, :<major>-latest floating, plus the
+# warmed-variant suffixes :<...>-warm / :<major>-warm-latest).
 on:
   workflow_dispatch:
     inputs:
@@ -18,12 +18,12 @@ on:
         type: string
         default: "3.4"
       tag_latest:
-        description: "Also push :<major>-latest (e.g. :11-latest)"
+        description: "Also push :<major>[-warm]-latest (e.g. :11-latest or :11-warm-latest)"
         required: false
         type: boolean
         default: false
       tag_warm:
-        description: "Reserved for future warmed-variant tags (currently no-op)"
+        description: "Build the warmed variant (--target warmed) and push :<version>-warm"
         required: false
         type: boolean
         default: false
@@ -39,23 +39,13 @@ env:
 jobs:
   build-push:
     runs-on: ubuntu-latest
-    # Cold boot of Jira 11 is 10-20min; smoke + push overhead = 60min ceiling.
-    timeout-minutes: 60
+    # Unwarmed: build ~5min + smoke ~15min + push ~5min = ~25min.
+    # Warmed:  build ~5min + warmer-stage boot ~15-25min + smoke ~3min
+    #          + push ~5min = ~50min. 90min ceiling is comfortable.
+    timeout-minutes: 90
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Validate inputs
-        # tag_warm is reserved for the warmed-variant tag scheme
-        # (:<version>-warm and :<major>-warm-latest). Fail fast before
-        # any build work so a flag set in error does not produce a
-        # half-completed run; remove this guard when the warmer build
-        # path lands in this repository.
-        run: |
-          if [ '${{ inputs.tag_warm }}' = 'true' ]; then
-            echo "::error::tag_warm is reserved for the future warmed-variant build path; the warmer is not yet integrated into this repository. Re-run with tag_warm=false."
-            exit 1
-          fi
 
       - uses: docker/setup-buildx-action@v3
 
@@ -66,17 +56,32 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Compute build target + tag suffix
+        id: vars
+        # tag_warm picks the multi-stage build target and the tag
+        # suffix together so they cannot drift. -warm comes BEFORE
+        # -latest in the floating tag (e.g. :11-warm-latest).
+        run: |
+          if [ '${{ inputs.tag_warm }}' = 'true' ]; then
+            echo "target=warmed" >> "$GITHUB_OUTPUT"
+            echo "suffix=-warm" >> "$GITHUB_OUTPUT"
+          else
+            echo "target=unwarmed" >> "$GITHUB_OUTPUT"
+            echo "suffix=" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build image
         run: |
           docker build \
+            --target '${{ steps.vars.outputs.target }}' \
             --build-arg JIRA_VERSION='${{ env.JIRA_VERSION }}' \
-            -t '${{ env.IMAGE }}:${{ env.JIRA_VERSION }}' \
+            -t '${{ env.IMAGE }}:${{ env.JIRA_VERSION }}${{ steps.vars.outputs.suffix }}' \
             .
 
       - name: Smoke test
         run: |
           bash scripts/smoke.sh \
-            '${{ env.IMAGE }}:${{ env.JIRA_VERSION }}' \
+            '${{ env.IMAGE }}:${{ env.JIRA_VERSION }}${{ steps.vars.outputs.suffix }}' \
             '${{ env.JIRA_VERSION }}' \
             artifacts
 
@@ -84,15 +89,17 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: smoke-${{ env.JIRA_VERSION }}
+          name: smoke-${{ env.JIRA_VERSION }}${{ steps.vars.outputs.suffix }}
           path: artifacts/
           if-no-files-found: warn
 
       - name: Push primary tag
-        run: docker push '${{ env.IMAGE }}:${{ env.JIRA_VERSION }}'
+        run: docker push '${{ env.IMAGE }}:${{ env.JIRA_VERSION }}${{ steps.vars.outputs.suffix }}'
 
-      - name: Push :<major>-latest
+      - name: Push floating tag
         if: inputs.tag_latest
         run: |
-          docker tag '${{ env.IMAGE }}:${{ env.JIRA_VERSION }}' '${{ env.IMAGE }}:${{ inputs.jira_major }}-latest'
-          docker push '${{ env.IMAGE }}:${{ inputs.jira_major }}-latest'
+          SRC='${{ env.IMAGE }}:${{ env.JIRA_VERSION }}${{ steps.vars.outputs.suffix }}'
+          DST='${{ env.IMAGE }}:${{ inputs.jira_major }}${{ steps.vars.outputs.suffix }}-latest'
+          docker tag "$SRC" "$DST"
+          docker push "$DST"
