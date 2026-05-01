@@ -4,21 +4,23 @@ name: ghcr-publish
 # Dockerfile JIRA_VERSION ARG (split here so the tag scheme can compose
 # :<major>.<minor.patch> primary, :<major>-latest floating, plus the
 # warmed-variant suffixes :<...>-warm / :<major>-warm-latest).
+# Jira 8 is past Atlassian EOL (Jan 2024); bumping the patch number
+# requires a still-published artifact on packages.atlassian.com.
 on:
   workflow_dispatch:
     inputs:
       jira_major:
-        description: "Jira major version (e.g. 11)"
+        description: "Jira major version (e.g. 8)"
         required: true
         type: string
-        default: "11"
+        default: "8"
       jira_minor_patch:
-        description: "Jira minor.patch (e.g. 3.4)"
+        description: "Jira minor.patch (e.g. 20.30)"
         required: true
         type: string
-        default: "3.4"
+        default: "20.30"
       tag_latest:
-        description: "Also push :<major>[-warm]-latest (e.g. :11-latest or :11-warm-latest)"
+        description: "Also push :<major>[-warm]-latest (e.g. :8-latest or :8-warm-latest)"
         required: false
         type: boolean
         default: false
@@ -60,7 +62,7 @@ jobs:
         id: vars
         # tag_warm picks the multi-stage build target and the tag
         # suffix together so they cannot drift. -warm comes BEFORE
-        # -latest in the floating tag (e.g. :11-warm-latest).
+        # -latest in the floating tag (e.g. :8-warm-latest).
         run: |
           if [ '${{ inputs.tag_warm }}' = 'true' ]; then
             echo "target=warmed" >> "$GITHUB_OUTPUT"

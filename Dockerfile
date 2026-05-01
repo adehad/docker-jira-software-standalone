@@ -4,7 +4,7 @@
 # BUMP-JIRA-AUDIT: Java runtime image. Jira 11.x = JDK 21 only;
 # Jira 10.x = JDK 17; Jira 9.x = JDK 11; Jira 8.x = JDK 8.
 # https://confluence.atlassian.com/adminjiraserver/supported-platforms-938846830.html
-ARG JAVA_IMAGE=eclipse-temurin:21-jdk-jammy
+ARG JAVA_IMAGE=eclipse-temurin:8-jdk-jammy
 
 # === base ====================================================================
 # Common scaffolding shared by `unwarmed`, `warmer`, and `warmed`.
@@ -15,16 +15,21 @@ FROM ${JAVA_IMAGE} AS base
 # can announce versions before they ship to Maven):
 #   curl https://packages.atlassian.com/maven-external/com/atlassian/amps/atlassian-plugin-sdk/maven-metadata.xml
 # Take the <release> value (or the latest <version> in the line you
-# need). 9.11.x = Jira 11 (latest published as of Apr 2026);
-# 9.0-9.2.x = Jira 10. Release-notes index for context only:
+# need). 8.2.x = Jira 8 (Java 8 / Spring 5 / javax.*); 9.0-9.2.x =
+# Jira 10; 9.11.x = Jira 11. Release-notes index for context only:
 # https://developer.atlassian.com/server/framework/atlassian-sdk/amps-sdk-release-notes/
-ARG AMPS_VERSION=9.11.2
+# Note: AMPS_VERSION is consumed twice - by install-sdk.sh against the
+# atlassian-plugin-sdk tarball, and by the pom against jira-maven-plugin.
+# The two artifacts can drift: the SDK tarball ships 8.2.4-8.2.10 but
+# jira-maven-plugin in the 8.2.x line tops out at 8.2.3, so 8.2.3 is
+# the highest version that resolves on BOTH sides.
+ARG AMPS_VERSION=8.2.3
 
 # BUMP-JIRA-AUDIT: Jira version baked as default for atlas-run.
-# Caller can override at runtime: docker run -e JIRA_VERSION=11.3.5 ...
-# Latest 11.3.x LTS (Apr 2026) = 11.3.4.
-# https://confluence.atlassian.com/jirasoftware/jira-software-11-3-x-release-notes-1689288832.html
-ARG JIRA_VERSION=11.3.4
+# Caller can override at runtime: docker run -e JIRA_VERSION=8.20.29 ...
+# 8.20.x final = 8.20.30 (EOL Jan 2024).
+# https://confluence.atlassian.com/jirasoftware/jira-software-8-20-x-release-notes-1086411771.html
+ARG JIRA_VERSION=8.20.30
 ENV JIRA_VERSION=${JIRA_VERSION}
 
 # DEBIAN_FRONTEND is build-time only; ARG (not ENV) keeps it out of the
@@ -69,8 +74,8 @@ ENTRYPOINT ["atlas-run", "-DskipAllPrompts=true", "-o"]
 
 # === unwarmed (default target) ===============================================
 # Default `docker build .` target. Boots cold every container start
-# (~10-20min for Jira 11). Use `--target warmed` to opt into the
-# pre-baked variant when the upfront ~25min build cost is acceptable.
+# (~5-10min for Jira 8). Use `--target warmed` to opt into the
+# pre-baked variant when the upfront ~15-20min build cost is acceptable.
 FROM base AS unwarmed
 # -DskipAllPrompts=true: same Marketplace v1 endpoint workaround as
 # above. Caller MUST run with -it; atlas-run exits without a TTY.
