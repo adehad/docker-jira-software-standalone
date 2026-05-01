@@ -4,7 +4,7 @@
 # BUMP-JIRA-AUDIT: Java runtime image. Jira 11.x = JDK 21 only;
 # Jira 10.x = JDK 17; Jira 9.x = JDK 11; Jira 8.x = JDK 8.
 # https://confluence.atlassian.com/adminjiraserver/supported-platforms-938846830.html
-ARG JAVA_IMAGE=eclipse-temurin:21-jdk-jammy
+ARG JAVA_IMAGE=eclipse-temurin:17-jdk-jammy
 
 # === base ====================================================================
 # Common scaffolding shared by `unwarmed`, `warmer`, and `warmed`.
@@ -18,13 +18,13 @@ FROM ${JAVA_IMAGE} AS base
 # need). 9.11.x = Jira 11 (latest published as of Apr 2026);
 # 9.0-9.2.x = Jira 10. Release-notes index for context only:
 # https://developer.atlassian.com/server/framework/atlassian-sdk/amps-sdk-release-notes/
-ARG AMPS_VERSION=9.11.2
+ARG AMPS_VERSION=9.1.2
 
 # BUMP-JIRA-AUDIT: Jira version baked as default for atlas-run.
-# Caller can override at runtime: docker run -e JIRA_VERSION=11.3.5 ...
-# Latest 11.3.x LTS (Apr 2026) = 11.3.4.
-# https://confluence.atlassian.com/jirasoftware/jira-software-11-3-x-release-notes-1689288832.html
-ARG JIRA_VERSION=11.3.4
+# Caller can override at runtime: docker run -e JIRA_VERSION=10.3.20 ...
+# Latest 10.3.x LTS (Apr 2026) = 10.3.19.
+# https://confluence.atlassian.com/jirasoftware/jira-software-10-3-x-release-notes-1472790887.html
+ARG JIRA_VERSION=10.3.19
 ENV JIRA_VERSION=${JIRA_VERSION}
 
 # DEBIAN_FRONTEND is build-time only; ARG (not ENV) keeps it out of the
@@ -69,7 +69,7 @@ ENTRYPOINT ["atlas-run", "-DskipAllPrompts=true", "-o"]
 
 # === unwarmed (default target) ===============================================
 # Default `docker build .` target. Boots cold every container start
-# (~10-20min for Jira 11). Use `--target warmed` to opt into the
+# (~10-18min for Jira 10). Use `--target warmed` to opt into the
 # pre-baked variant when the upfront ~25min build cost is acceptable.
 FROM base AS unwarmed
 # -DskipAllPrompts=true: same Marketplace v1 endpoint workaround as

@@ -164,36 +164,41 @@
     <properties>
         <!-- BUMP-JIRA-AUDIT: Driven by the JIRA_VERSION env that the
              Dockerfile ARG/ENV pair sets, so the same image runs multiple
-             11.x patches. -->
+             10.x patches. -->
         <jira.version>${env.JIRA_VERSION}</jira.version>
 
         <!-- BUMP-JIRA-AUDIT: AMPS. Verify the version is actually
              published in Maven (release-notes pages can announce
              versions before they ship to Maven):
              https://packages.atlassian.com/maven-external/com/atlassian/amps/atlassian-plugin-sdk/maven-metadata.xml
-             9.11.x is the latest published 9.x supporting Jira 11 as
-             of Apr 2026. Must match the Dockerfile AMPS_VERSION ARG. -->
-        <amps.version>9.11.2</amps.version>
+             9.1.x / 9.0.x is the supported AMPS line for Jira 10 as
+             of Apr 2026. Must match the Dockerfile AMPS_VERSION ARG.
+             Note: Jira 10 community reports use jira-maven-plugin
+             8.17.x while the SDK tarball is 9.1.x; if atlas-run fails
+             with a Maven plugin resolution error citing
+             com.atlassian.maven.plugins:jira-maven-plugin, split the
+             values - keep Dockerfile AMPS_VERSION=9.1.2 (SDK tarball)
+             but pin this to 8.17.6. -->
+        <amps.version>9.1.2</amps.version>
 
         <!-- BUMP-JIRA-AUDIT: atlassian-plugins-osgi-testrunner. Browse:
              https://packages.atlassian.com/maven-external/com/atlassian/plugins/atlassian-plugins-osgi-testrunner/
-             Latest 2.0.x for Jira 8-10. For Jira 11 verify the chosen
-             2.0.x resolves under the active AMPS line; if a
-             Jakarta-aware 2.1.x or 3.x ships, prefer it. -->
+             Latest 2.0.x for Jira 8-10. -->
         <plugin.testrunner.version>2.0.16</plugin.testrunner.version>
 
         <!-- BUMP-JIRA-AUDIT: atlassian-spring-scanner. Major-locked to
-             Jira's Spring major. Jira 11 ships Spring 6 + Jakarta EE 10
-             so 6.x is mandatory; 5.x cannot scan jakarta.* annotations.
+             Jira's Spring major. Jira 10 still ships Spring 5 + javax.*
+             so the 2.2.x line is required; 6.x scans only jakarta.*
+             annotations and would no-op against Jira 10's classpath.
              https://packages.atlassian.com/maven-external/com/atlassian/plugin/atlassian-spring-scanner-runtime/ -->
-        <atlassian.spring.scanner.version>6.0.0</atlassian.spring.scanner.version>
+        <atlassian.spring.scanner.version>2.2.6</atlassian.spring.scanner.version>
 
         <atlassian.plugin.key>${project.groupId}.${project.artifactId}</atlassian.plugin.key>
 
-        <!-- BUMP-JIRA-AUDIT: Java compile floor. Jira 11 runtime = JDK 21;
-             compile target 17 = Spring 6 / Jakarta EE 10 baseline.
-             Bumping to 21 also valid; 17 is safer cross-compat with
-             Jira 10. -->
+        <!-- BUMP-JIRA-AUDIT: Java compile floor. Jira 10 runtime = JDK 17
+             (still on Spring 5 / javax.*, so compile floor is bound by
+             the runtime JDK rather than Jakarta-EE / Spring 6). Source
+             and target stay at 17 to match the runtime image. -->
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
 

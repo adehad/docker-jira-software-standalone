@@ -8,17 +8,17 @@ on:
   workflow_dispatch:
     inputs:
       jira_major:
-        description: "Jira major version (e.g. 11)"
+        description: "Jira major version (e.g. 10)"
         required: true
         type: string
-        default: "11"
+        default: "10"
       jira_minor_patch:
-        description: "Jira minor.patch (e.g. 3.4)"
+        description: "Jira minor.patch (e.g. 3.19)"
         required: true
         type: string
-        default: "3.4"
+        default: "3.19"
       tag_latest:
-        description: "Also push :<major>[-warm]-latest (e.g. :11-latest or :11-warm-latest)"
+        description: "Also push :<major>[-warm]-latest (e.g. :10-latest or :10-warm-latest)"
         required: false
         type: boolean
         default: false
@@ -60,7 +60,7 @@ jobs:
         id: vars
         # tag_warm picks the multi-stage build target and the tag
         # suffix together so they cannot drift. -warm comes BEFORE
-        # -latest in the floating tag (e.g. :11-warm-latest).
+        # -latest in the floating tag (e.g. :10-warm-latest).
         run: |
           if [ '${{ inputs.tag_warm }}' = 'true' ]; then
             echo "target=warmed" >> "$GITHUB_OUTPUT"

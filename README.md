@@ -15,7 +15,7 @@
 ## 📝 Table of Contents
 
 <!-- TOC kept at the addono baseline (About / Usage / Contributors)
-     intentionally; Travis CI, Jira 11 variant, and Development are not
+     intentionally; Travis CI, Jira 10 variant, and Development are not
      listed here so the upstream-PR diff back to Addono/master stays
      scoped to the build-system change. Update the TOC alongside any
      future structural rework. -->
@@ -44,22 +44,22 @@ docker run -d -it -p 2990:2990 --name jira addono/jira-software-standalone
 
 _Note: Make sure that the `-i` flag is enabled, as without it the server will exit the moment it completed booting._
 
-## Jira 11 variant
+## Jira 10 variant
 
-The `jira-11` branch builds a self-hosted variant of this image targeting
-Jira Software 11.x (Java 21, AMPS 9.12.x). Published to GitHub Container
+The `jira-10` branch builds a self-hosted variant of this image targeting
+Jira Software 10.x (Java 17, AMPS 9.1.x). Published to GitHub Container
 Registry under the maintainer's account:
 
 `ghcr.io/adehad/jira-software-standalone:<jira-version>`
 
 ```bash
 docker run -dit -p 2990:2990 --name jira \
-  ghcr.io/adehad/jira-software-standalone:11.3.4
+  ghcr.io/adehad/jira-software-standalone:10.3.19
 ```
 
 The `master` branch and the Docker Hub `addono/jira-software-standalone`
 image continue to serve Jira 8.x; the two are not interchangeable
-because Jira 11 requires JDK 21 at runtime.
+because Jira 10 requires JDK 17 at runtime.
 
 ## 🛠️ Development
 
@@ -73,7 +73,7 @@ This means three things at runtime:
 
 1. The Jira version that boots is the `JIRA_VERSION` env in the container,
    which defaults to the build-time `ARG` value but can be overridden:
-   `docker run -e JIRA_VERSION=11.3.5 ...` (within the same major).
+   `docker run -e JIRA_VERSION=10.3.20 ...` (within the same major).
 2. `AMPS_VERSION` and `JAVA_IMAGE` are baked at build time only — there
    is no runtime override; bumping a Jira major requires a fresh build.
 3. The pom is otherwise version-agnostic: AMPS itself dispatches to the
@@ -103,10 +103,10 @@ exhaustive list of places to touch.
 
 ```bash
 docker build \
-  --build-arg JIRA_VERSION=11.3.4 \
+  --build-arg JIRA_VERSION=10.3.19 \
   -t jira-software-standalone:dev .
 
-bash scripts/smoke.sh jira-software-standalone:dev 11.3.4 ./artifacts
+bash scripts/smoke.sh jira-software-standalone:dev 10.3.19 ./artifacts
 ```
 
 `scripts/smoke.sh` starts the container, polls Dashboard.jspa until Jira
@@ -124,10 +124,10 @@ adding ~15–25 min upfront.
 
 ```bash
 docker build --target warmed \
-  --build-arg JIRA_VERSION=11.3.4 \
+  --build-arg JIRA_VERSION=10.3.19 \
   -t jira-software-standalone:dev-warm .
 
-bash scripts/smoke.sh jira-software-standalone:dev-warm 11.3.4 ./artifacts
+bash scripts/smoke.sh jira-software-standalone:dev-warm 10.3.19 ./artifacts
 ```
 
 What gets baked: `/root/.m2/repository` (Maven cache) and
@@ -153,22 +153,22 @@ of these:
 2. Bump it to a current Jakarta-aware version (Maven Central for `junit`
    / `gson`; `packages.atlassian.com/maven-external` for the rest).
 3. Re-run the workflow. Commit with `Refs: <hash>` where `<hash>` is the
-   short SHA of the `feat(jira-11)` commit that introduced the Dockerfile
-   and pom changes (use `git log --oneline --grep "feat(jira-11)"`).
+   short SHA of the `feat(jira-10)` commit that introduced the Dockerfile
+   and pom changes (use `git log --oneline --grep "feat(jira-10)"`).
 
 ### Publishing
 
 `.github/workflows/ghcr-publish.yml` is `workflow_dispatch` only. Inputs:
 
-- `jira_major` — string, default matches Dockerfile (e.g. `11`).
-- `jira_minor_patch` — string, default matches Dockerfile (e.g. `3.4`).
+- `jira_major` — string, default matches Dockerfile (e.g. `10`).
+- `jira_minor_patch` — string, default matches Dockerfile (e.g. `3.19`).
 - `tag_latest` — boolean; when true, also pushes `:<major>-latest`
-  (e.g. `:11-latest`). Safe per-major — different majors don't collide
+  (e.g. `:10-latest`). Safe per-major — different majors don't collide
   on `:<major>-latest`.
 - `tag_warm` — boolean; when true, the workflow builds the multi-stage
   `warmed` target and the primary tag gets a `-warm` suffix
-  (e.g. `:11.3.4-warm`). Floating tag also picks up the suffix
-  (`:11-warm-latest`). The warmer build adds ~15–25 min to total
+  (e.g. `:10.3.19-warm`). Floating tag also picks up the suffix
+  (`:10-warm-latest`). The warmer build adds ~15–25 min to total
   workflow time; only set when the runtime cold-boot saving is worth
   the upfront cost.
 
